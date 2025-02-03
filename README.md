@@ -103,4 +103,3 @@ This project is licensed under the MIT License. See the LICENSE file for details
 - **Contributing**: Provides guidelines for contributing to the project.
 - **License**: Specifies the license under which the project is distributed.
 
-Feel free to customize this README to better fit your project's specifics and requirements.
