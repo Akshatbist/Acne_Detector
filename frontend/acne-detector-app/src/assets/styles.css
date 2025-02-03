@@ -1,0 +1,364 @@
+/* HomePage.css */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #f6d365 10%, #fda085 100%);
+  color: #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+.homepage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 30px;
+  animation: fadeIn 1.5s ease-out;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.card {
+  background: #ffffff;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+  padding: 40px 30px;
+  text-align: center;
+  width: 100%;
+  max-width: 500px;
+  animation: slideIn 0.6s ease-out;
+}
+
+@keyframes slideIn {
+  0% { transform: translateY(-30px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.heading {
+  font-size: 2.5rem;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.file-input {
+  padding: 15px;
+  margin: 20px 0;
+  border: 2px solid #4CAF50;
+  border-radius: 10px;
+  width: 100%;
+  background-color: #f9f9f9;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.file-input:focus {
+  outline: none;
+  border-color: #2ecc71;
+  transform: scale(1.05);
+}
+
+.submit-btn {
+  padding: 15px 35px;
+  background-color: #4CAF50;
+  color: #fff;
+  font-size: 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: scale(1);
+}
+
+.submit-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #45a049;
+  transform: scale(1.05);
+}
+
+.loading-text {
+  font-size: 16px;
+  color: #999;
+  margin-top: 20px;
+  animation: loadingTextAnimation 2s linear infinite;
+}
+
+@keyframes loadingTextAnimation {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.detections {
+  margin-top: 30px;
+  text-align: left;
+  animation: fadeIn 1s ease-out;
+}
+
+.detections-heading {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.detections-pre {
+  background-color: #f3f3f3;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  overflow-x: auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.detections-pre:hover {
+  background-color: #e9e9e9;
+  transform: scale(1.02);
+}
+
+.image-result {
+  margin-top: 30px;
+  animation: fadeIn 1.2s ease-out;
+}
+
+.processed-img {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 20px;
+  margin-top: 20px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease-in-out;
+}
+
+.processed-img:hover {
+  transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 30px 20px;
+  }
+
+  .heading {
+    font-size: 2rem;
+  }
+
+  .submit-btn {
+    padding: 12px 25px;
+  }
+
+  .file-input {
+    font-size: 14px;
+  }
+}
+
+/* General Reset */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f5f7fa;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* Container for the result page */
+.result-container {
+  background: white;
+  width: 90%;
+  max-width: 600px;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  position: relative;
+}
+
+/* Title Styling */
+.result-container h2 {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+/* Paragraph Styling */
+.result-container p {
+  font-size: 18px;
+  color: #555;
+  margin-bottom: 15px;
+}
+
+/* Image Styling */
+.result-image {
+  max-width: 100%;
+  height: auto;
+  max-height: 300px; /* Prevents elongation */
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+/* Back Button */
+.back-button {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  padding: 10px;
+  margin: 20px auto 0;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.back-button:hover {
+  background: #0056b3;
+}
+
+/* Ensures button is always visible */
+.sticky-footer {
+  position: sticky;
+  bottom: 20px;
+  background: white;
+  padding: 10px;
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+  border-radius: 5px;
+  width: fit-content;
+  margin: auto;
+}
+
+/* Button Press Animation */
+.submit-btn:active, 
+.back-button:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease-in-out;
+}
+
+/* File Input Hover Glow */
+.file-input:hover {
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
+  border-color: #45a049;
+}
+
+/* Card Bounce-In Animation */
+@keyframes bounceIn {
+  0% { transform: scale(0.9); opacity: 0; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.card {
+  animation: bounceIn 0.8s ease-out;
+}
+
+/* Smooth Fade-In for Result Container */
+@keyframes smoothFade {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.result-container {
+  animation: smoothFade 0.8s ease-in-out;
+}
+
+/* Pulsing Effect on Submit Button */
+@keyframes pulse {
+  0% { box-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(76, 175, 80, 0.6); }
+  100% { box-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
+}
+
+.submit-btn:not(:disabled) {
+  animation: pulse 2s infinite;
+}
+
+/* Fade-in for Processed Image */
+@keyframes fadeInScale {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.processed-img {
+  animation: fadeInScale 1s ease-in-out;
+}
+/* Result Container Slide-Up Animation */
+@keyframes slideUpFade {
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.result-container {
+  animation: slideUpFade 0.8s ease-out;
+}
+
+/* Image Zoom-In on Load */
+@keyframes zoomInFade {
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.result-image {
+  animation: zoomInFade 1s ease-out;
+}
+
+/* Text Fade-In Staggered Effect */
+@keyframes fadeInText {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.result-container h2 {
+  animation: fadeInText 0.8s ease-out;
+}
+
+.result-container p {
+  animation: fadeInText 1s ease-out;
+}
+
+/* Back Button Bounce on Hover */
+@keyframes bounceHover {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.back-button:hover {
+  animation: bounceHover 0.3s ease-in-out;
+  background: #0056b3;
+}
+
+/* Sticky Footer Slide-In Effect */
+@keyframes slideInFooter {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.sticky-footer {
+  animation: slideInFooter 1s ease-out;
+}
+
+  

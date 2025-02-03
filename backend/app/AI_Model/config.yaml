@@ -1,0 +1,14 @@
+path: 'C:\Users\aksha\ALL_PROJECTS\Acne_Detector\backend\app\AI_Model\Data'
+train: images\train
+val: images\train
+
+# Classes
+names:
+  0: Whiteheads
+  1: Blackheads
+  2: Papules
+  3: Pustules
+  4: Nodules
+  5: Cysts
+  6: Post-Inflammatory Hyperpigmentation
+  7: Scarring
