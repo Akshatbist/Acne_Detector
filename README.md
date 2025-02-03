@@ -1,6 +1,6 @@
 # Acne Detector
 
-Demo Video: https://drive.google.com/file/d/17hTP3Zrz2k9rOic-9jvyWLKv9htqG01H/view?usp=drive_link
+Demo Video: https://drive.google.com/file/d/17hTP3Zrz2k9rOic-9jvyWLKv9htqG01H/view?usp=sharing
 
 Acne Detector is a web application that uses a YOLO (You Only Look Once) model to detect different types of acne in uploaded images. The application allows users to upload images, runs YOLO inference to detect acne, and returns the detection results along with the processed image.
 
