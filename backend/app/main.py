@@ -1,17 +1,19 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from ultralytics import YOLO
-import os
-from dotenv import load_dotenv
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from ultralytics import YOLO
+from io import BytesIO
+from PIL import Image
+import numpy as np
+import os
+import asyncio
+from dotenv import load_dotenv
 
-# Load environment variables
+# --------------------
+# Setup
+# --------------------
 load_dotenv()
 
-#Initialize
 app = FastAPI()
 
 origins = [
@@ -23,7 +25,6 @@ origins = [
     "http://localhost:5174",
     "http://localhost:5175",
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -32,73 +33,100 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#Upload directory for users to upload images
-UPLOAD_DIR = os.getenv("UPLOAD_DIR")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+MODEL_PATH = os.getenv("MODEL_PATH", r"C:\Users\aksha\ALL_PROJECTS\Acne_Detector\backend\app\AI_Model\runs\detect\train\weights\best.pt")
+model = YOLO(MODEL_PATH)
 
-PREDICT_DIR = os.getenv("PREDICT_DIR")
-os.makedirs(PREDICT_DIR, exist_ok=True)
-# Adds static path to the server
-app.mount("/predict", StaticFiles(directory=PREDICT_DIR), name="predict")
+# OPTIONAL: your custom label names (override model.names if desired)
+ACNE_CLASSES = [
+    "Whiteheads", "Blackheads", "Papules", "Pustules",
+    "Nodules", "Cysts", "Post-Inflammatory Hyperpigmentation", "Scarring"
+]
 
-model = YOLO(os.getenv("MODEL_PATH"))
+MAX_BYTES = 10 * 1024 * 1024        # 10 MB upload limit
+MAX_DIM   = 4096                    # guard against image bombs
 
-executor = ThreadPoolExecutor(max_workers=4)
+# --------------------
+# Helpers
+# --------------------
+def _bytes_to_pil(img_bytes: bytes) -> Image.Image:
+    try:
+        img = Image.open(BytesIO(img_bytes))
+        img = img.convert("RGB")
+        if img.width > MAX_DIM or img.height > MAX_DIM:
+            raise HTTPException(status_code=413, detail="Image dimensions too large")
+        return img
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image file")
 
-# Define a function to run YOLO inference in a separate thread
-def run_yolo_inference(file_path: str):
-    results = model.predict(source=file_path, save = True, project="runs/detect", name="predict", exist_ok=True)  # Run YOLO inference
-    print(f"Results for {file_path}: {results}")
+def _format_detections(det) -> dict:
+    """
+    det: ultralytics.engine.results.Results
+    """
+    boxes = det.boxes
+    if boxes is None or len(boxes) == 0:
+        return {"num_detections": 0, "detections": []}
 
-    detect_folder = os.path.join("runs", "detect", "predict")
+    data = boxes.data.cpu().numpy()  # Nx6: x1,y1,x2,y2,conf,cls
+    names = ACNE_CLASSES if ACNE_CLASSES else det.names
 
-    if not os.path.exists(detect_folder):  # Check if folder exists
-        return None
-    
-    base_name = os.path.splitext(os.path.basename(file_path))[0]  # Get the base name of the file
-    image_files = os.path.join(detect_folder, f"{base_name}.jpg") # Get the path to the processed image
-
-    if not image_files:  # No images found
-        return None
-
-    processed_image = image_files  
-
-    return results, processed_image
-
-@app.post("/upload/")
-async def upload_image(file: UploadFile = File(...)):
-    # Save the uploaded file
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
-
-    # Run YOLO inference asynchronously
-    loop = asyncio.get_event_loop()
-    results, processed_image = await loop.run_in_executor(executor, run_yolo_inference, file_path)
-
-    # Extract and format YOLO results
-    detections = results[0].boxes.data.tolist()
-    print(detections)
-    ACNE_CLASSES = ["Whiteheads", "Blackheads", "Papules", "Pustules", "Nodules", "Cysts", "Post-Inflammatory Hyperpigmentation", "Scarring"]
-    formatted_results = [
-        {
-            "x1": int(box[0]),
-            "y1": int(box[1]),
-            "x2": int(box[2]),
-            "y2": int(box[3]),
-            "confidence": float(box[4]),
-            "class": int(box[5]),
-            "class_name": ACNE_CLASSES[int(box[5])] if int(box[5]) < len(ACNE_CLASSES) else "Unknown"
-        }
-        for box in detections
-    ]
-
-    print(f"Raw results: {results}")  # Logs entire YOLO results
-    print(f"Detections: {results[0].boxes.data.tolist() if results[0].boxes else 'No detections'}")
-
-
-    return JSONResponse(content={
-            "detections": formatted_results,
-            "image_url": f"/predict/{os.path.basename(processed_image)}" if processed_image else None
+    out = []
+    for row in data:
+        x1, y1, x2, y2, conf, cls_id = row
+        cls_id = int(cls_id)
+        out.append({
+            "x1": int(x1), "y1": int(y1), "x2": int(x2), "y2": int(y2),
+            "confidence": float(conf),
+            "class": cls_id,
+            "class_name": names[cls_id] if 0 <= cls_id < len(names) else f"class_{cls_id}"
         })
+    return {"num_detections": len(out), "detections": out}
+
+async def _predict_in_thread(pil_img: Image.Image):
+    # run the blocking model inference off the event loop
+    return await asyncio.to_thread(model.predict, pil_img, verbose=False)
+
+# --------------------
+# Routes
+# --------------------
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+@app.post("/detect")
+async def detect(
+    file: UploadFile = File(...),
+    return_annotated: bool = Query(False, description="Return annotated JPEG instead of JSON"),
+):
+    # 1) read bytes into memory
+    img_bytes = await file.read()
+    if len(img_bytes) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large")
+
+    # 2) decode safely
+    pil_img = _bytes_to_pil(img_bytes)
+
+    # 3) predict (no disk involved)
+    results = await _predict_in_thread(pil_img)
+    det = results[0]
+
+    # 4) return JSON (default)
+    payload = _format_detections(det)
+    if not return_annotated:
+        return JSONResponse(payload)
+
+    # 5) or stream annotated image (still in-memory)
+    annotated_bgr = det.plot()          # numpy array in BGR
+    annotated_rgb = annotated_bgr[..., ::-1]
+    buf = BytesIO()
+    Image.fromarray(annotated_rgb).save(buf, format="JPEG", quality=90)
+    buf.seek(0)
+
+    # include a tiny JSON summary in a header if you want to read it client-side
+    # (headers must be small; keep it minimal or omit if unnecessary)
+    # after you format detections into `payload`
+# e.g., payload = {"detections": [...]}  # trim to first N if many
+    return StreamingResponse(buf, media_type="image/jpeg")
+
 

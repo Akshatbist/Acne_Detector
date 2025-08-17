@@ -6,6 +6,9 @@ const ResultPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { acnetypes, treatment, imageURL } = location.state || {};
+  const NoResult = !acnetypes || !treatment;
+  const declaimer =
+    "Our AI model was trained on a limited dataset and may not recognize all acne types. Please consult a dermatologist for an accurate diagnosis.";
 
   return (
     <div className="result-container">
@@ -14,6 +17,8 @@ const ResultPage: React.FC = () => {
 
       <h2>Suggested Treatment</h2>
       <p>{treatment || "No recommendation available"}</p>
+
+      {NoResult && <p>{declaimer}</p>}
 
       {imageURL && (
         <img src={imageURL} alt="Detected Acne" className="result-image" />
