@@ -4,9 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
 from io import BytesIO
 from PIL import Image
+from pathlib import Path
 import numpy as np
-import os
-import asyncio
+import os, json, asyncio
 from dotenv import load_dotenv
 
 # --------------------
@@ -16,25 +16,37 @@ load_dotenv()
 
 app = FastAPI()
 
-origins = [
-    "http://localhost.tiangolo.com",
-    "https://localhost.tiangolo.com",
-    "http://localhost",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:5174",
-    "http://localhost:5175",
-]
+# Allow localhost + 127.0.0.1 (Vite usually 5173)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Detections"],  # so browser can read this header
 )
 
-MODEL_PATH = os.getenv("MODEL_PATH", r"C:\Users\aksha\ALL_PROJECTS\Acne_Detector\backend\app\AI_Model\runs\detect\train\weights\best.pt")
-model = YOLO(MODEL_PATH)
+# Resolve model path: env override; else relative to this file
+BASE_DIR = Path(__file__).resolve().parent
+default_model = BASE_DIR / "AI_Model" / "runs" / "detect" / "train" / "weights" / "best.pt"
+env_model = os.getenv("MODEL_PATH")
+MODEL_PATH = Path(env_model).expanduser().resolve() if env_model else default_model
+
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(f"MODEL_PATH does not exist: {MODEL_PATH}")
+
+model = YOLO(str(MODEL_PATH))
 
 # OPTIONAL: your custom label names (override model.names if desired)
 ACNE_CLASSES = [
@@ -44,6 +56,21 @@ ACNE_CLASSES = [
 
 MAX_BYTES = 10 * 1024 * 1024        # 10 MB upload limit
 MAX_DIM   = 4096                    # guard against image bombs
+
+# --------------------
+# Startup warmup (prevents first-run stall)
+# --------------------
+@app.on_event("startup")
+async def warmup():
+    try:
+        dummy = Image.fromarray(np.zeros((640, 640, 3), dtype=np.uint8))
+        print(">> warmup start")
+        _ = await asyncio.to_thread(
+            model.predict, dummy, verbose=False, imgsz=640, device="cpu"
+        )
+        print(">> warmup done")
+    except Exception as e:
+        print(">> warmup failed:", e)
 
 # --------------------
 # Helpers
@@ -85,7 +112,14 @@ def _format_detections(det) -> dict:
 
 async def _predict_in_thread(pil_img: Image.Image):
     # run the blocking model inference off the event loop
-    return await asyncio.to_thread(model.predict, pil_img, verbose=False)
+    return await asyncio.to_thread(
+        model.predict,
+        pil_img,
+        verbose=False,
+        imgsz=640,     # speed/quality knob; try 512/416 if slow
+        device="cpu",
+        conf=0.25
+    )
 
 # --------------------
 # Routes
@@ -99,6 +133,7 @@ async def detect(
     file: UploadFile = File(...),
     return_annotated: bool = Query(False, description="Return annotated JPEG instead of JSON"),
 ):
+    print(">> /detect called")
     # 1) read bytes into memory
     img_bytes = await file.read()
     if len(img_bytes) > MAX_BYTES:
@@ -106,14 +141,17 @@ async def detect(
 
     # 2) decode safely
     pil_img = _bytes_to_pil(img_bytes)
+    print(">> decoded")
 
     # 3) predict (no disk involved)
     results = await _predict_in_thread(pil_img)
     det = results[0]
+    print(">> predicted")
 
-    # 4) return JSON (default)
+    # 4) JSON by default
     payload = _format_detections(det)
     if not return_annotated:
+        print(">> returning JSON")
         return JSONResponse(payload)
 
     # 5) or stream annotated image (still in-memory)
@@ -122,11 +160,10 @@ async def detect(
     buf = BytesIO()
     Image.fromarray(annotated_rgb).save(buf, format="JPEG", quality=90)
     buf.seek(0)
+    print(">> returning JPEG stream")
 
-    # include a tiny JSON summary in a header if you want to read it client-side
-    # (headers must be small; keep it minimal or omit if unnecessary)
-    # after you format detections into `payload`
-# e.g., payload = {"detections": [...]}  # trim to first N if many
-    return StreamingResponse(buf, media_type="image/jpeg")
+    # Optional: tiny header with a few detections
+    header_payload = {"detections": payload["detections"][:8]}  # keep small!
+    headers = {"X-Detections": json.dumps(header_payload)}
 
-
+    return StreamingResponse(buf, media_type="image/jpeg", headers=headers)

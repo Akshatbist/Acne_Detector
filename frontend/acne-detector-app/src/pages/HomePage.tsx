@@ -13,8 +13,7 @@ type Detection = {
   class_name: string;
 };
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_URL || "http://127.0.0.1:8000";
+const API_BASE = "http://localhost:8000";
 
 const TREATMENT_MAP: Record<string, string> = {
   Whiteheads: "Topical retinoid or benzoyl peroxide",
@@ -38,6 +37,7 @@ const HomePage: React.FC = () => {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [imageURL, setImageURL] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +53,7 @@ const HomePage: React.FC = () => {
     setDetections([]);
     setRecommendations([]);
     setImageURL(null);
+    setError(null);
   };
 
   const buildRecommendations = (dets: Detection[]) => {
@@ -68,7 +69,7 @@ const HomePage: React.FC = () => {
 
   const fetchDetectionsJSON = async (formData: FormData) => {
     const jsonResp = await axios.post(`${API_BASE}/detect`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 30000,
     });
     const dets: Detection[] = jsonResp.data?.detections ?? [];
     setDetections(dets);
@@ -78,43 +79,26 @@ const HomePage: React.FC = () => {
   const handleSubmit = async () => {
     if (!file) return;
     setLoading(true);
+    setError(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      // 1) Request annotated image (primary)
+      // 1) Get detections JSON first (faster)
+      const dets = await fetchDetectionsJSON(formData);
+      const { classes, recs } = buildRecommendations(dets);
+
+      // 2) Then fetch annotated image
       const imgResp = await axios.post(
         `${API_BASE}/detect?return_annotated=true`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
           responseType: "blob",
+          timeout: 30000,
         }
       );
-
       const blobURL = URL.createObjectURL(imgResp.data);
       setImageURL(blobURL);
-
-      // 2) Try to read detections from header (if backend sends X-Detections)
-      let dets: Detection[] = [];
-      const headerVal = imgResp.headers["x-detections"];
-      if (headerVal) {
-        try {
-          const parsed = JSON.parse(headerVal) as { detections?: Detection[] };
-          dets = parsed?.detections ?? [];
-          setDetections(dets);
-        } catch {
-          /* ignore parse errors, fallback below */
-        }
-      }
-
-      // 3) Fallback to a lightweight JSON call if header missing
-      if (dets.length === 0) {
-        dets = await fetchDetectionsJSON(formData);
-      }
-
-      // 4) Build recommendations from detected classes
-      const { classes, recs } = buildRecommendations(dets);
 
       // (Optional) Route to results page with everything
       navigate("/results", {
@@ -124,8 +108,12 @@ const HomePage: React.FC = () => {
           imageURL: blobURL,
         },
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error:", err);
+      setError(
+        err?.response?.data?.detail ||
+          "Upload failed. Image may be too large or the server may be busy."
+      );
     } finally {
       setLoading(false);
     }
@@ -146,12 +134,13 @@ const HomePage: React.FC = () => {
         <button
           onClick={handleSubmit}
           className="submit-btn"
-          disabled={loading}
+          disabled={loading || !file}
         >
           {loading ? "Processing..." : "Submit"}
         </button>
 
         {loading && <p className="loading-text">Processing... Please wait.</p>}
+        {error && <p className="error-text">{error}</p>}
 
         {imageURL && (
           <div className="image-result">
