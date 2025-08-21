@@ -13,7 +13,7 @@ type Detection = {
   class_name: string;
 };
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 const TREATMENT_MAP: Record<string, string> = {
   Whiteheads: "Topical retinoid or benzoyl peroxide",
