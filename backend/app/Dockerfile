@@ -21,7 +21,7 @@ COPY . /app
 # Runtime config
 ENV PORT=8000
 # Change if your FastAPI instance is elsewhere
-ENV APP_MODULE="app.main:app"
+ENV APP_MODULE="main:app"
 
 EXPOSE 8000
 
